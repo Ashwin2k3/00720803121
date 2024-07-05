@@ -1,31 +1,55 @@
-# products/views.py
+import requests
+from django.http import JsonResponse
+from django.conf import settings
 
-from rest_framework import generics, pagination, filters
-from .models import Product
-from .serializers import ProductSerializer
-from django_filters.rest_framework import DjangoFilterBackend
+def get_top_products(request, categoryname):
+    top = request.GET.get('top', 10)
+    min_price = request.GET.get('minPrice', 0)
+    max_price = request.GET.get('maxPrice', 10000)
+    
+    # API endpoint to fetch products
+    url = f"http://20.244.56.144/test/companies/AMZ/categories/{categoryname}/products"
+    headers = {
+        "Authorization": f"Bearer {settings.ACCESS_TOKEN}"
+    }
+    params = {
+        'top': top,
+        'minPrice': min_price,
+        'maxPrice': max_price
+    }
 
-class ProductPagination(pagination.PageNumberPagination):
-    page_size = 10
+    print(f"Request URL: {url}")
+    print(f"Headers: {headers}")
+    print(f"Params: {params}")
 
-class ProductListView(generics.ListAPIView):
-    serializer_class = ProductSerializer
-    pagination_class = ProductPagination
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['price', 'rating', 'company', 'discount']
-    ordering_fields = ['price', 'rating', 'company', 'discount']
+    response = requests.get(url, headers=headers, params=params)
 
-    def get_queryset(self):
-        category = self.kwargs['categoryname']
-        min_price = self.request.query_params.get('minPrice', 0)
-        max_price = self.request.query_params.get('maxPrice', float('inf'))
-        queryset = Product.objects.filter(category=category, price__gte=min_price, price__lte=max_price)
-        n = self.request.query_params.get('n', None)
-        if n:
-            queryset = queryset[:int(n)]
-        return queryset
+    print(f"Status Code: {response.status_code}")
+    print(f"Response Content: {response.content}")
 
-class ProductDetailView(generics.RetrieveAPIView):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
-    lookup_field = 'product_id'
+    if response.status_code == 200:
+        products = response.json()
+        return JsonResponse(products, safe=False)
+    else:
+        return JsonResponse({'error': 'Failed to fetch data from external API', 'details': response.content.decode()}, status=response.status_code)
+
+def get_product_details(request, categoryname, productid):
+    # API endpoint to fetch product details
+    url = f"http://20.244.56.144/test/companies/AMZ/categories/{categoryname}/products/{productid}"
+    headers = {
+        "Authorization": f"Bearer {settings.ACCESS_TOKEN}"
+    }
+
+    print(f"Request URL: {url}")
+    print(f"Headers: {headers}")
+
+    response = requests.get(url, headers=headers)
+
+    print(f"Status Code: {response.status_code}")
+    print(f"Response Content: {response.content}")
+
+    if response.status_code == 200:
+        product_details = response.json()
+        return JsonResponse(product_details, safe=False)
+    else:
+        return JsonResponse({'error': 'Failed to fetch product details from external API', 'details': response.content.decode()}, status=response.status_code)
